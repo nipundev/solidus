@@ -314,6 +314,7 @@ Style/FrozenStringLiteralComment:
     - '*/lib/generators/**/*'
     - '**/bin/**/*'
     - '*/db/migrate/**/*'
+    - '*/config/importmap.rb'
 
 # json.() is idiomatic in jbuilder files
 Style/LambdaCall:
@@ -337,7 +338,8 @@ Lint/SuppressedException:
 
 Lint/MissingSuper:
   Exclude:
-    - 'core/lib/spree/deprecation.rb' # this is a known class that doesn't require super
+    - '*/app/components/**/*' # components need pristine initializer methods
+    - 'core/lib/spree/deprecated_instance_variable_proxy.rb' # this is a known class that doesn't require super
     - 'core/lib/spree/preferences/configuration.rb' # this class has no superclass defining `self.inherited`
 
 Rails/FindEach:
