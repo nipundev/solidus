@@ -41,13 +41,20 @@ class SolidusAdmin::Products::Index::Component < SolidusAdmin::BaseComponent
   end
 
   def filters
-    [
+    Spree::OptionType.all.map do |option_type|
       {
-        name: 'q[with_discarded]',
-        value: true,
-        label: t('.filters.with_deleted'),
-      },
-    ]
+        presentation: option_type.presentation,
+        combinator: 'or',
+        attribute: "variants_option_values",
+        predicate: "in",
+        options: option_type.option_values.map do |option_value|
+          [
+            option_value.name,
+            option_value.id
+          ]
+        end
+      }
+    end
   end
 
   def columns
@@ -67,11 +74,11 @@ class SolidusAdmin::Products::Index::Component < SolidusAdmin::BaseComponent
       data: ->(product) do
         image = product.gallery.images.first or return
 
-        link_to(
-          image_tag(image.url(:small), class: 'h-10 w-10 max-w-min rounded border border-gray-100', alt: product.name),
-          solidus_admin.product_path(product),
-          class: 'inline-flex overflow-hidden',
-          tabindex: -1,
+        render(
+          component('ui/thumbnail').new(
+            src: image.url(:small),
+            alt: product.name
+          )
         )
       end
     }
@@ -81,7 +88,7 @@ class SolidusAdmin::Products::Index::Component < SolidusAdmin::BaseComponent
     {
       header: :name,
       data: ->(product) do
-        link_to product.name, solidus_admin.product_path(product)
+        content_tag :div, product.name
       end
     }
   end

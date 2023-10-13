@@ -5,7 +5,7 @@ class SolidusAdmin::Orders::Index::Component < SolidusAdmin::BaseComponent
     @page = page
   end
 
-  class_attribute :fade_row_proc, default: ->(order) { order.paid? && order.shipped? }
+  class_attribute :row_fade, default: ->(order) { order.paid? && order.shipped? }
 
   def title
     Spree::Order.model_name.human.pluralize
@@ -26,9 +26,65 @@ class SolidusAdmin::Orders::Index::Component < SolidusAdmin::BaseComponent
   def filters
     [
       {
-        name: 'q[completed_at_not_null]',
-        value: 1,
-        label: t('.filters.only_show_complete_orders'),
+        presentation: t('.filters.status'),
+        combinator: 'or',
+        attribute: "state",
+        predicate: "eq",
+        options: Spree::Order.state_machines[:state].states.map do |state|
+          [
+            state.value.titleize,
+            state.value
+          ]
+        end
+      },
+
+      {
+        presentation: t('.filters.shipment_state'),
+        combinator: 'or',
+        attribute: "shipment_state",
+        predicate: "eq",
+        options: %i[backorder canceled partial pending ready shipped].map do |option|
+          [
+            option.to_s.capitalize,
+            option
+          ]
+        end
+      },
+      {
+        presentation: t('.filters.payment_state'),
+        combinator: 'or',
+        attribute: "payment_state",
+        predicate: "eq",
+        options: %i[balance_due checkout completed credit_owed invalid paid pending processing void].map do |option|
+          [
+            option.to_s.titleize,
+            option
+          ]
+        end
+      },
+      {
+        presentation: t('.filters.variants'),
+        combinator: 'or',
+        attribute: "line_items_variant_id",
+        predicate: "in",
+        options: Spree::Variant.all.map do |variant|
+          [
+            variant.descriptive_name,
+            variant.id
+          ]
+        end
+      },
+      {
+        presentation: t('.filters.promotions'),
+        combinator: 'or',
+        attribute: "promotions_id",
+        predicate: "in",
+        options: Spree::Promotion.all.map do |promotion|
+          [
+            promotion.name,
+            promotion.id
+          ]
+        end
       },
     ]
   end
@@ -49,12 +105,10 @@ class SolidusAdmin::Orders::Index::Component < SolidusAdmin::BaseComponent
     {
       header: :order,
       data: ->(order) do
-        order_path = spree.edit_admin_order_path(order)
-
-        if !fade_row_proc.call(order)
-          link_to order.number, order_path, class: 'font-semibold'
+        if !row_fade.call(order)
+          content_tag :div, order.number, class: 'font-semibold'
         else
-          link_to order.number, order_path
+          content_tag :div, order.number
         end
       end
     }
@@ -102,7 +156,7 @@ class SolidusAdmin::Orders::Index::Component < SolidusAdmin::BaseComponent
     {
       header: :payment,
       data: ->(order) do
-        component('ui/badge').new(name: order.payment_state&.humanize, color: order.paid? ? :green : :yellow)
+        component('ui/badge').new(name: order.payment_state.humanize, color: order.paid? ? :green : :yellow) if order.payment_state?
       end
     }
   end
@@ -111,7 +165,7 @@ class SolidusAdmin::Orders::Index::Component < SolidusAdmin::BaseComponent
     {
       header: :shipment,
       data: ->(order) do
-        component('ui/badge').new(name: order.shipment_state&.humanize, color: order.shipped? ? :green : :yellow)
+        component('ui/badge').new(name: order.shipment_state.humanize, color: order.shipped? ? :green : :yellow) if order.shipment_state?
       end
     }
   end
