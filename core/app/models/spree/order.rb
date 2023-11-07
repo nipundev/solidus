@@ -104,7 +104,7 @@ module Spree
              foreign_key: :order_id,
              dependent: :destroy,
              inverse_of: :order
-    has_many :order_promotions, class_name: 'Spree::OrderPromotion'
+    has_many :order_promotions, class_name: 'Spree::OrderPromotion', dependent: :destroy
     has_many :promotions, through: :order_promotions
 
     # Payments
@@ -498,7 +498,7 @@ module Spree
     end
 
     def apply_shipping_promotions
-      Spree::PromotionHandler::Shipping.new(self).activate
+      Spree::Config.shipping_promotion_handler_class.new(self).activate
       recalculate
     end
 

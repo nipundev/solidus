@@ -1,21 +1,19 @@
 # frozen_string_literal: true
 
 class SolidusAdmin::UI::Badge::Component < SolidusAdmin::BaseComponent
-  include ViewComponent::InlineTemplate
-
   COLORS = {
-    graphite_light: "text-black bg-graphiteLight",
+    graphite_light: "text-black bg-graphite-light",
     red: 'text-red-500 bg-red-100',
     green: 'text-forest bg-seafoam',
     blue: 'text-blue bg-sky',
     black: 'text-white bg-black',
-    yellow: 'text-orange bg-papayaWhip',
+    yellow: 'text-orange bg-papaya-whip',
   }.freeze
 
   SIZES = {
-    s: 'leading-4 px-2 py-0.5 text-3 font-[500]',
-    m: 'leading-5 px-3 py-0.5 text-3.5 font-[500]',
-    l: 'leading-6 px-3 py-0.5 text-4 font-[500]',
+    s: 'px-2 py-0.5 text-xs font-semibold',
+    m: 'px-3 py-0.5 text-sm font-semibold',
+    l: 'px-3 py-0.5 text-base font-semibold',
   }.freeze
 
   def initialize(name:, color: :graphite_light, size: :m)
