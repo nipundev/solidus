@@ -21,7 +21,7 @@ class SolidusAdmin::Orders::Show::Component < SolidusAdmin::BaseComponent
       address.address2,
       address.city,
       address.zipcode,
-      address.state.name,
+      address.state&.name,
       tag.br,
       address.country.name,
       tag.br,
@@ -32,13 +32,13 @@ class SolidusAdmin::Orders::Show::Component < SolidusAdmin::BaseComponent
   def panel_title_with_more_links(title, links)
     tag.details(
       tag.summary(
-        tag.div(
+        tag.span(
           safe_join([
             title,
             component("ui/button").new(
               icon: "more-line",
               scheme: :ghost,
-              tag: :div,
+              tag: :span,
               alt: t("spree.edit"),
               class: "cursor-pointer"
             ).render_in(self),
