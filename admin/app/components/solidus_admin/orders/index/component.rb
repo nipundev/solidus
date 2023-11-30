@@ -11,16 +11,26 @@ class SolidusAdmin::Orders::Index::Component < SolidusAdmin::BaseComponent
     Spree::Order.model_name.human.pluralize
   end
 
-  def prev_page_link
-    @page.first? ? nil : solidus_admin.url_for(host: request.host, port: request.port, **request.params, page: @page.number - 1)
+  def prev_page_path
+    solidus_admin.url_for(**request.params, page: @page.number - 1, only_path: true) unless @page.first?
   end
 
-  def next_page_link
-    @page.last? ? nil : solidus_admin.url_for(host: request.host, port: request.port, **request.params, page: @page.next_param)
+  def next_page_path
+    solidus_admin.url_for(**request.params, page: @page.next_param, only_path: true) unless @page.last?
   end
 
   def batch_actions
     []
+  end
+
+  def scopes
+    [
+      { label: t('.scopes.complete'), name: 'completed', default: true },
+      { label: t('.scopes.in_progress'), name: 'in_progress' },
+      { label: t('.scopes.returned'), name: 'returned' },
+      { label: t('.scopes.canceled'), name: 'canceled' },
+      { label: t('.scopes.all_orders'), name: 'all' },
+    ]
   end
 
   def filters
@@ -92,6 +102,7 @@ class SolidusAdmin::Orders::Index::Component < SolidusAdmin::BaseComponent
   def columns
     [
       number_column,
+      state_column,
       date_column,
       customer_column,
       total_column,
@@ -114,6 +125,21 @@ class SolidusAdmin::Orders::Index::Component < SolidusAdmin::BaseComponent
     }
   end
 
+  def state_column
+    {
+      header: :state,
+      data: ->(order) do
+        color = {
+          'complete' => :green,
+          'returned' => :red,
+          'canceled' => :blue,
+          'cart' => :graphite_light,
+        }[order.state] || :yellow
+        component('ui/badge').new(name: order.state.humanize, color: color)
+      end
+    }
+  end
+
   def date_column
     {
       header: :date,
@@ -125,7 +151,7 @@ class SolidusAdmin::Orders::Index::Component < SolidusAdmin::BaseComponent
 
   def customer_column
     {
-      class_name: "w-[400px]",
+      col: { class: "w-[400px]" },
       header: :customer,
       data: ->(order) do
         customer_email = order.user&.email

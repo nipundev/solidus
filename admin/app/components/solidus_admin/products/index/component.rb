@@ -11,12 +11,12 @@ class SolidusAdmin::Products::Index::Component < SolidusAdmin::BaseComponent
     Spree::Product.model_name.human.pluralize
   end
 
-  def prev_page_link
-    @page.first? ? nil : solidus_admin.url_for(host: request.host, port: request.port, **request.params, page: @page.number - 1)
+  def prev_page_path
+    solidus_admin.url_for(**request.params, page: @page.number - 1, only_path: true) unless @page.first?
   end
 
-  def next_page_link
-    @page.last? ? nil : solidus_admin.url_for(host: request.host, port: request.port, **request.params, page: @page.next_param)
+  def next_page_path
+    solidus_admin.url_for(**request.params, page: @page.next_param, only_path: true) unless @page.last?
   end
 
   def batch_actions
@@ -59,6 +59,13 @@ class SolidusAdmin::Products::Index::Component < SolidusAdmin::BaseComponent
     end
   end
 
+  def scopes
+    [
+      { name: :all, label: t('.scopes.all'), default: true },
+      { name: :deleted, label: t('.scopes.deleted') },
+    ]
+  end
+
   def columns
     [
       image_column,
@@ -71,7 +78,7 @@ class SolidusAdmin::Products::Index::Component < SolidusAdmin::BaseComponent
 
   def image_column
     {
-      class_name: "w-[72px]",
+      col: { class: "w-[72px]" },
       header: tag.span('aria-label': t('.product_image'), role: 'text'),
       data: ->(product) do
         image = product.gallery.images.first or return

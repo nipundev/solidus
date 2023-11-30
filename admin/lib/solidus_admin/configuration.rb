@@ -186,6 +186,51 @@ module SolidusAdmin
       ]
     end
 
+    def import_menu_items_from_backend!
+      menu_item_to_hash = ->(item, index) do
+        route =
+          if item.url.is_a?(Symbol)
+            -> { solidus_admin.public_send(item.url) }
+          elsif item.url.is_a?(String)
+            -> { item.url }
+          elsif item.url.is_a?(Proc)
+            item.url
+          elsif item.url.nil?
+            -> { spree.public_send(:"admin_#{item.label}_path") }
+          else
+            raise ArgumentError, "Unknown url type #{item.url.class}"
+          end
+
+        match_path =
+          case item.match_path
+          when Regexp then -> { _1 =~ item.match_path }
+          when Proc then item.match_path
+          when String then -> { _1.start_with?("/admin#{item.match_path}") }
+          when nil then -> { _1.start_with?(route.call) }
+          else raise ArgumentError, "Unknown match_path type #{item.match_path.class}"
+          end
+
+        icon =
+          case item.icon
+          when /^ri-/
+            item.icon.delete_prefix("ri-")
+          when String
+            'record-circle-line' # fallback on a generic icon
+          end
+
+        {
+          position: index,
+          key: item.label,
+          icon: icon,
+          route: route,
+          children: item.children.map.with_index(&menu_item_to_hash),
+          match_path: match_path,
+        }
+      end
+
+      @menu_items = Spree::Backend::Config.menu_items.map.with_index(&menu_item_to_hash)
+    end
+
     def components
       @components ||= Hash.new do |_h, k|
         const_name = "solidus_admin/#{k}/component".classify
@@ -219,6 +264,26 @@ module SolidusAdmin
 
     # The HTTP method used to logout the user in the admin interface.
     preference :logout_link_method, :string, default: :delete
+
+    # @!attribute [rw] themes
+    #   @return [Hash] A hash containing the themes that are available for the admin panel
+    preference :themes, :hash, default: {
+      solidus: 'solidus_admin/application',
+      solidus_dark: 'solidus_admin/dark',
+      solidus_dimmed: 'solidus_admin/dimmed',
+    }
+
+    # @!attribute [rw] theme
+    #   @return [String] Default admin theme name
+    preference :theme, :string, default: 'solidus'
+
+    # @!attribute [rw] dark_theme
+    #   @return [String] Default admin theme name
+    preference :dark_theme, :string, default: 'solidus_dark'
+
+    def theme_path(user_theme)
+      themes.fetch(user_theme&.to_sym, themes[theme.to_sym])
+    end
   end
 end
 

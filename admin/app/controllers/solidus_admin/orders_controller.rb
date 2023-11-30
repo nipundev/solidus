@@ -3,12 +3,19 @@
 module SolidusAdmin
   class OrdersController < SolidusAdmin::BaseController
     include Spree::Core::ControllerHelpers::StrongParameters
+    include SolidusAdmin::ControllerHelpers::Search
+
+    search_scope(:completed, default: true) { _1.complete }
+    search_scope(:canceled) { _1.canceled }
+    search_scope(:returned) { _1.with_state(:returned) }
+    search_scope(:in_progress) { _1.with_state([:cart] + _1.checkout_step_names) }
+    search_scope(:all) { _1 }
 
     def index
-      orders = Spree::Order
-        .order(created_at: :desc, id: :desc)
-        .ransack(params[:q])
-        .result(distinct: true)
+      orders = apply_search_to(
+        Spree::Order.order(created_at: :desc, id: :desc),
+        param: :q,
+      )
 
       set_page_and_extract_portion_from(
         orders,
@@ -18,6 +25,16 @@ module SolidusAdmin
       respond_to do |format|
         format.html { render component('orders/index').new(page: @page) }
       end
+    end
+
+    def new
+      order = Spree::Order.create!(
+        created_by: current_solidus_admin_user,
+        frontend_viewable: false,
+        store_id: current_store.try(:id)
+      )
+
+      redirect_to order_url(order), status: :see_other
     end
 
     def show
@@ -71,6 +88,22 @@ module SolidusAdmin
 
       respond_to do |format|
         format.html { render component('orders/cart/result').with_collection(@variants, order: @order), layout: false }
+      end
+    end
+
+    def customers_for
+      load_order
+
+      @users = Spree.user_class
+        .where.not(id: @order.user_id)
+        .order(created_at: :desc, id: :desc)
+        .ransack(params[:q])
+        .result(distinct: true)
+        .includes(:default_user_bill_address, :default_user_ship_address)
+        .limit(10)
+
+      respond_to do |format|
+        format.html { render component('orders/show/customer_search/result').with_collection(@users, order: @order), layout: false }
       end
     end
 

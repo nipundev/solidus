@@ -13,12 +13,14 @@ export default class extends Controller {
     "filterToolbar",
     "defaultHeader",
     "batchHeader",
+    "tableBody",
     "selectedRowsCount",
   ]
 
   static classes = ["selectedRow"]
   static values = {
     mode: { type: String, default: "scopes" },
+    sortable: { type: Boolean, default: false },
   }
 
   initialize() {
@@ -27,12 +29,6 @@ export default class extends Controller {
     // If the function is called again within this delay, the previous call is cleared,
     // effectively ensuring the form is only submitted 200ms after the last call (e.g., user stops typing).
     this.search = debounce(this.search.bind(this), 200)
-  }
-
-  connect() {
-    if (this.searchFieldTarget.value !== "") this.modeValue = "search"
-
-    this.render()
   }
 
   showSearch(event) {
@@ -51,19 +47,29 @@ export default class extends Controller {
   }
 
   cancelSearch() {
-    this.clearSearch()
+    this.resetFilters()
+    this.search()
+  }
 
-    this.modeValue = "scopes"
-    this.render()
+  resetFilters() {
+    if (!this.hasFilterToolbarTarget) return
+
+    for (const fieldset of this.filterToolbarTarget.querySelectorAll('fieldset')) {
+      fieldset.setAttribute('disabled', true)
+    }
+    this.searchFieldTarget.setAttribute('disabled', true)
+    this.searchFormTarget.submit()
   }
 
   selectRow(event) {
     if (this.checkboxTargets.some((checkbox) => checkbox.checked)) {
       this.modeValue = "batch"
-    } else if (this.searchFieldTarget.value !== '') {
+    } else if (this.hasSearchFieldTarget && (this.searchFieldTarget.value !== '')) {
       this.modeValue = "search"
-    } else {
+    } else if (this.hasScopesToolbarTarget) {
       this.modeValue = "scopes"
+    } else {
+      this.modeValue = "search"
     }
 
     this.render()
@@ -72,10 +78,12 @@ export default class extends Controller {
   selectAllRows(event) {
     if (event.target.checked) {
       this.modeValue = "batch"
-    } else if (this.searchFieldTarget.value !== '') {
+    } else if (this.hasSearchFieldTarget && (this.searchFieldTarget.value !== '')) {
       this.modeValue = "search"
-    } else {
+    } else if (this.hasScopesToolbarTarget) {
       this.modeValue = "scopes"
+    } else {
+      this.modeValue = "search"
     }
 
     this.checkboxTargets.forEach((checkbox) => (checkbox.checked = event.target.checked))
@@ -84,14 +92,13 @@ export default class extends Controller {
   }
 
   rowClicked(event) {
-    if (event.target.closest('a') || event.target.tagName === 'BUTTON' || event.target.type === 'checkbox') return
+    // If the user clicked on a link, button, input or summary, skip the row url visit
+    if (event.target.closest("td").contains(event.target.closest("a,select,textarea,button,input,summary"))) return
 
-    const row = event.currentTarget
-
-    if (this.modeValue === 'batch') {
-      this.toggleCheckbox(row)
+    if (this.modeValue === "batch") {
+      this.toggleCheckbox(event.currentTarget)
     } else {
-      this.navigateToRow(row)
+      window.Turbo.visit(event.params.url)
     }
   }
 
@@ -104,16 +111,12 @@ export default class extends Controller {
     }
   }
 
-  navigateToRow(row) {
-    const url = row.dataset.primaryUrl
-
-    if (url) window.location.href = url
-  }
-
   render() {
     const selectedRows = this.checkboxTargets.filter((checkbox) => checkbox.checked)
 
-    this.searchToolbarTarget.toggleAttribute("hidden", this.modeValue !== "search")
+    if (this.hasSearchFieldTarget) {
+      this.searchToolbarTarget.toggleAttribute("hidden", this.modeValue !== "search")
+    }
 
     if (this.hasFilterToolbarTarget) {
       this.filterToolbarTarget.toggleAttribute("hidden", this.modeValue !== "search")
@@ -123,12 +126,21 @@ export default class extends Controller {
     this.batchHeaderTarget.toggleAttribute("hidden", this.modeValue !== "batch")
     this.defaultHeaderTarget.toggleAttribute("hidden", this.modeValue === "batch")
 
-    this.scopesToolbarTarget.toggleAttribute("hidden", this.modeValue !== "scopes")
+    if (this.hasScopesToolbarTarget) {
+      this.scopesToolbarTarget.toggleAttribute("hidden", this.modeValue !== "scopes")
+    }
 
     // Update the rows background color
     this.checkboxTargets.filter((checkbox) =>
       checkbox.closest("tr").classList.toggle(this.selectedRowClass, checkbox.checked),
     )
+
+    // Determine if sortable should be enabled
+    if (this.sortableValue && this.modeValue !== "batch" && this.modeValue !== "search") {
+      this.tableBodyTarget.setAttribute('data-controller', 'sortable');
+    } else {
+      this.tableBodyTarget.removeAttribute('data-controller');
+    }
 
     // Update the selected rows count
     this.selectedRowsCountTarget.textContent = `${selectedRows.length}`
@@ -138,7 +150,8 @@ export default class extends Controller {
       checkbox.indeterminate = false
       checkbox.checked = false
 
-      if (selectedRows.length === this.checkboxTargets.length) checkbox.checked = true
+      if (this.checkboxTargets.length > 0 && selectedRows.length === this.checkboxTargets.length)
+        checkbox.checked = true
       else if (selectedRows.length > 0) checkbox.indeterminate = true
     })
   }
